@@ -10,7 +10,7 @@ from scraper_thread import (
 )
 from db import (
     get_settings, update_setting, get_listings, save_listing,
-    get_user_by_username, create_user_db, init_db, get_all_users,
+    get_user_by_username, get_user_by_email, create_user_db, init_db,
     get_keyword_trends, get_price_analytics, get_source_comparison,
     get_keyword_analysis, get_hourly_activity, get_price_distribution,
     get_market_insights, update_keyword_trends
@@ -80,11 +80,10 @@ def create_user(username, password, email):
             return False, "Username already exists"
         
         # Check if email already exists
-        all_users = ErrorHandler.handle_database_error(get_all_users)
-        for user in all_users:
-            if user[1] == email:  # email is at index 1
-                logger.warning(f"Registration attempt with existing email: {email}")
-                return False, "Email already registered"
+        existing_email_user = ErrorHandler.handle_database_error(get_user_by_email, email)
+        if existing_email_user:
+            logger.warning(f"Registration attempt with existing email: {email}")
+            return False, "Email already registered"
         
         # Hash password securely
         hashed = SecurityConfig.hash_password(password)
