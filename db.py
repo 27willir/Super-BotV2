@@ -96,6 +96,19 @@ def init_db():
             )
         """)
         
+        # Inquiries table for buyer-to-seller messages (stored with listing link)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS inquiries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                listing_title TEXT,
+                listing_link TEXT,
+                listing_source TEXT,
+                message TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Create indexes for better performance
         c.execute("CREATE INDEX IF NOT EXISTS idx_listings_created_at ON listings(created_at)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_listings_source ON listings(source)")
@@ -105,6 +118,7 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_trends_date ON keyword_trends(date)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_trends_keyword ON keyword_trends(keyword)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_market_stats_date ON market_stats(date)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_inquiries_username_created_at ON inquiries(username, created_at)")
         
         conn.commit()
         conn.close()
@@ -497,3 +511,74 @@ def get_market_insights(days=30):
         'top_keywords': top_keywords,
         'source_performance': source_performance
     }
+
+# ======================
+# INQUIRIES (MESSAGING)
+# ======================
+
+def save_inquiry(username, listing_title, listing_link, listing_source, message):
+    """Persist a buyer inquiry referencing a listing by link."""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        """
+        INSERT INTO inquiries (username, listing_title, listing_link, listing_source, message)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (username, listing_title, listing_link, listing_source, message)
+    )
+    conn.commit()
+    conn.close()
+
+def get_inquiries_for_user(username):
+    """Fetch inquiries created by a specific user."""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT id, username, listing_title, listing_link, listing_source, message, created_at
+        FROM inquiries
+        WHERE username = ?
+        ORDER BY datetime(created_at) DESC
+        """,
+        (username,)
+    )
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+def get_all_inquiries():
+    """Fetch all inquiries (admin view)."""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT id, username, listing_title, listing_link, listing_source, message, created_at
+        FROM inquiries
+        ORDER BY datetime(created_at) DESC
+        """
+    )
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+def count_recent_inquiries(username, window_seconds=60):
+    """Count inquiries by a user within the recent time window (basic rate limiting)."""
+    try:
+        window = int(window_seconds)
+    except Exception:
+        window = 60
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM inquiries
+        WHERE username = ?
+          AND created_at >= datetime('now', '-' || ? || ' seconds')
+        """,
+        (username, window)
+    )
+    count = c.fetchone()[0]
+    conn.close()
+    return count

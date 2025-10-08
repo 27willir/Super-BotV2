@@ -13,7 +13,8 @@ from db import (
     get_user_by_username, create_user_db, init_db, get_all_users,
     get_keyword_trends, get_price_analytics, get_source_comparison,
     get_keyword_analysis, get_hourly_activity, get_price_distribution,
-    get_market_insights, update_keyword_trends
+    get_market_insights, update_keyword_trends,
+    save_inquiry, get_inquiries_for_user, get_all_inquiries, count_recent_inquiries
 )
 from security import SecurityConfig
 from error_handling import ErrorHandler, log_errors, safe_execute, DatabaseError
@@ -231,6 +232,53 @@ def index():
         "ksl": is_ksl_running(),
     }
     return render_template("index.html", listings=listings, settings=settings, status=status)
+
+@app.route("/messages", methods=["GET"])
+@login_required
+def messages():
+    # For simplicity, show current user's sent inquiries; in future, add seller inbox
+    user_inquiries = ErrorHandler.handle_database_error(get_inquiries_for_user, current_user.id)
+    return render_template("messages.html", inquiries=user_inquiries)
+
+@app.route("/contact-seller", methods=["POST"])
+@login_required
+def contact_seller():
+    try:
+        listing_title = SecurityConfig.sanitize_input(request.form.get("listing_title", ""))
+        listing_link = request.form.get("listing_link", "").strip()
+        listing_source = SecurityConfig.sanitize_input(request.form.get("listing_source", ""))
+        message = request.form.get("message", "").strip()
+
+        if not listing_link or not message:
+            flash("Listing link and message are required", "error")
+            return redirect(url_for("index"))
+
+        # Basic size checks
+        if len(message) > 1000:
+            flash("Message is too long (max 1000 characters)", "error")
+            return redirect(url_for("index"))
+
+        # Basic rate limit: max 3 messages per minute
+        recent = ErrorHandler.handle_database_error(count_recent_inquiries, current_user.id, 60)
+        if recent >= 3:
+            flash("Too many messages sent recently. Please wait a minute and try again.", "error")
+            return redirect(url_for("index"))
+
+        # Sanitize message minimally
+        safe_message = SecurityConfig.sanitize_input(message)
+        ErrorHandler.handle_database_error(
+            save_inquiry,
+            current_user.id,
+            listing_title,
+            listing_link,
+            listing_source,
+            safe_message
+        )
+        flash("Your message has been sent to the seller!", "success")
+    except Exception as e:
+        logger.error(f"Error submitting inquiry: {e}")
+        flash("Failed to send message. Please try again.", "error")
+    return redirect(url_for("index"))
 
 # Start/Stop routes
 @app.route("/start/<site>")
