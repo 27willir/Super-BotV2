@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Sell Item - Super Bot</title>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:wght@300;400;500;600;700;800&family=Rajdhani:wght@300;400;500;600;700&family=Roboto+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+	<style>
+		/* Reuse styling approach from index.html for consistency */
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: "Orbitron", "Exo 2", "Rajdhani", "Roboto Mono", monospace;
+			background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+			background-attachment: fixed;
+			color: #ffffff; display: flex; min-height: 100vh; position: relative; line-height: 1.6;
+		}
+		body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+			background-image: radial-gradient(circle at 20% 80%, rgba(0, 123, 255, 0.1) 0%, transparent 50%),
+			radial-gradient(circle at 80% 20%, rgba(0, 123, 255, 0.1) 0%, transparent 50%),
+			radial-gradient(circle at 40% 40%, rgba(0, 123, 255, 0.05) 0%, transparent 50%);
+			z-index: -1; animation: particleFloat 20s ease-in-out infinite; }
+		@keyframes particleFloat { 0%, 100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-20px) rotate(180deg); } }
+		a { text-decoration: none; color: inherit; }
+		.sidebar { width: 260px; background: rgba(26, 26, 46, 0.95); backdrop-filter: blur(20px); border-right: 1px solid rgba(0, 123, 255, 0.2); padding: 32px 24px; display: flex; flex-direction: column; gap: 24px; box-shadow: 0 0 30px rgba(0, 123, 255, 0.1); position: relative; overflow-y: auto; }
+		.sidebar h1 { font-size: 24px; color: #00bfff; margin-bottom: 32px; text-shadow: 0 0 10px rgba(0, 191, 255, 0.5); font-weight: 700; letter-spacing: -0.5px; position: relative; padding-bottom: 16px; }
+		.sidebar h1::after { content: ''; position: absolute; bottom: 0; left: 0; width: 40px; height: 2px; background: linear-gradient(90deg, #00bfff, transparent); border-radius: 1px; }
+		.sidebar a { display: flex; align-items: center; padding: 14px 18px; border-radius: 10px; transition: all 0.3s; color: rgba(255,255,255,0.85); border: 1px solid transparent; position: relative; overflow: hidden; font-weight: 500; font-size: 14px; letter-spacing: 0.3px; }
+		.sidebar a:hover { background: rgba(0,123,255,0.1); border-color: rgba(0,191,255,0.3); transform: translateX(6px); box-shadow: 0 4px 20px rgba(0,191,255,0.15); color: #fff; }
+		.sidebar a i { margin-right: 14px; color: #00bfff; font-size: 16px; width: 20px; text-align: center; }
+		.main { flex-grow: 1; padding: 40px 48px; background: rgba(10, 10, 15, 0.3); overflow-y: auto; }
+		.card { background: rgba(26,26,46,0.85); backdrop-filter: blur(20px); padding: 32px; border-radius: 16px; margin-bottom: 32px; border: 1px solid rgba(0,191,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(0,191,255,0.1); position: relative; }
+		h2 { margin-bottom: 24px; color: #fff; font-size: 28px; font-weight: 700; text-shadow: 0 0 10px rgba(255,255,255,0.1); letter-spacing: -0.5px; line-height: 1.2; }
+		input[type="text"], input[type="number"], textarea { width: 100%; padding: 16px 20px; margin: 12px 0 20px 0; border-radius: 12px; border: 1px solid rgba(0,191,255,0.3); background: rgba(22,33,62,0.8); color: #fff; font-size: 15px; }
+		textarea { min-height: 120px; resize: vertical; }
+		button, input[type="submit"] { background: linear-gradient(135deg, #007bff 0%, #00bfff 100%); color: #fff; border: none; padding: 16px 32px; border-radius: 12px; cursor: pointer; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; font-size: 14px; }
+		.platforms { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 20px 0; }
+		.platforms label { background: rgba(22,33,62,0.8); border: 1px solid rgba(0,191,255,0.3); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+		.status { margin-top: 16px; padding: 10px 14px; border-radius: 8px; background: rgba(22,33,62,0.6); border: 1px solid rgba(0,191,255,0.2); }
+	</style>
+</head>
+<body>
+	<div class="sidebar">
+		<h1><i class="fas fa-robot"></i> Super Bot</h1>
+		<a href="/"><i class="fas fa-home"></i> Dashboard</a>
+		<a href="/analytics"><i class="fas fa-chart-line"></i> Analytics</a>
+		<a href="/sell"><i class="fas fa-tags"></i> Sell</a>
+	</div>
+	<div class="main">
+		<div class="card">
+			<h2><i class="fas fa-tags"></i> Sell an Item</h2>
+			<form action="/sell" method="POST">
+				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+				Title<br>
+				<input type="text" name="title" placeholder="e.g. 1998 Pontiac Firebird" required><br>
+				Description<br>
+				<textarea name="description" placeholder="Describe the item"></textarea><br>
+				Price (USD)<br>
+				<input type="number" name="price" min="0" step="1" placeholder="5000" required><br>
+				Image URL (optional)<br>
+				<input type="text" name="image_url" placeholder="https://..."><br>
+				Platforms<br>
+				<div class="platforms">
+					{% for p in supported_platforms %}
+					<label>
+						<input type="checkbox" name="platforms" value="{{ p }}"> {{ p.capitalize() }}
+					</label>
+					{% endfor %}
+				</div>
+				<input type="submit" value="Create Sell Job">
+			</form>
+			{% if job_id %}
+			<div class="status" id="job_status">
+				Checking job status...
+			</div>
+			{% endif %}
+		</div>
+	</div>
+
+	<script>
+		async function fetchStatus(jobId) {
+			try {
+				const res = await fetch(`/api/sell/status/${jobId}`, { credentials: 'same-origin' });
+				if (!res.ok) { throw new Error('Failed to fetch status'); }
+				const data = await res.json();
+				const el = document.getElementById('job_status');
+				if (!el) return;
+				const parts = [];
+				parts.push(`Overall status: ${data.status}`);
+				if (data.platforms) {
+					for (const [plat, state] of Object.entries(data.platforms)) {
+						parts.push(`${plat}: ${state.status}${state.message ? ' - ' + state.message : ''}`);
+					}
+				}
+				el.textContent = parts.join(' | ');
+				return data.status;
+			} catch (e) {
+				const el = document.getElementById('job_status');
+				if (el) el.textContent = 'Error fetching status';
+				return 'failed';
+			}
+		}
+
+		(async function init() {
+			const jobId = '{{ job_id or "" }}';
+			if (!jobId) return;
+			let attempts = 0;
+			const maxAttempts = 40; // ~40 * 1s = 40s
+			while (attempts < maxAttempts) {
+				attempts++;
+				const status = await fetchStatus(jobId);
+				if (status === 'completed' || status === 'failed' || status === 'partial') break;
+				await new Promise(r => setTimeout(r, 1000));
+			}
+		})();
+	</script>
+</body>
+</html>
+
