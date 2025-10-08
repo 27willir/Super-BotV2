@@ -19,6 +19,7 @@ from security import SecurityConfig
 from error_handling import ErrorHandler, log_errors, safe_execute, DatabaseError
 from error_recovery import start_error_recovery, stop_error_recovery, handle_error, get_system_status
 from utils import logger
+from selling import create_sell_job, get_job_status, list_supported_platforms
 import json
 import os
 from dotenv import load_dotenv
@@ -442,10 +443,68 @@ def analytics():
     """Analytics dashboard page"""
     return render_template("analytics.html")
 
+@app.route("/sell", methods=["GET", "POST"])
+@login_required
+def sell():
+    """Selling page to post items to supported platforms."""
+    if request.method == "POST":
+        try:
+            title = request.form.get("title", "").strip()
+            description = request.form.get("description", "").strip()
+            price = request.form.get("price", "").strip()
+            image_url = request.form.get("image_url", "").strip()
+            platforms = request.form.getlist("platforms")
+
+            if not title or not price or not platforms:
+                flash("Title, price, and at least one platform are required", "error")
+                return redirect(url_for("sell"))
+
+            # Validate price numeric
+            try:
+                price_val = int(price)
+                if price_val < 0:
+                    flash("Price cannot be negative", "error")
+                    return redirect(url_for("sell"))
+            except ValueError:
+                flash("Invalid price value", "error")
+                return redirect(url_for("sell"))
+
+            details = {
+                "title": title,
+                "description": description,
+                "price": price_val,
+                "image_url": image_url,
+                "user": current_user.id if current_user.is_authenticated else None,
+            }
+
+            job_id = create_sell_job(details, platforms)
+            flash("Sell job created successfully!", "success")
+            return redirect(url_for("sell", job_id=job_id))
+        except Exception as e:
+            logger.error(f"Error creating sell job: {e}")
+            flash("Failed to create sell job", "error")
+            return redirect(url_for("sell"))
+
+    # GET method
+    job_id = request.args.get("job_id")
+    supported = list_supported_platforms()
+    return render_template("sell.html", supported_platforms=supported, job_id=job_id)
+
+from flask import jsonify
+
+@app.route("/api/sell/status/<job_id>")
+@login_required
+@csrf.exempt
+def api_sell_status(job_id):
+    """Return status for a given selling job."""
+    status = get_job_status(job_id)
+    if "error" in status and status["error"] == "job_not_found":
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(status)
+
 # ======================
 # CLEAN API ROUTES
 # ======================
-from flask import jsonify
 
 @app.route("/api/status")
 @login_required
