@@ -105,6 +105,8 @@ def init_db():
         c.execute("CREATE INDEX IF NOT EXISTS idx_trends_date ON keyword_trends(date)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_trends_keyword ON keyword_trends(keyword)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_market_stats_date ON market_stats(date)")
+        # Ensure unique emails across users
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email)")
         
         conn.commit()
         conn.close()
@@ -141,6 +143,15 @@ def get_user_by_username(username):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT username, email, password, verified FROM users WHERE username = ?", (username,))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+def get_user_by_email(email):
+    """Get user by email"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT username, email, password, verified FROM users WHERE email = ?", (email,))
     user = c.fetchone()
     conn.close()
     return user
