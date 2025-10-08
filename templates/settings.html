@@ -242,7 +242,7 @@
     <!-- MAIN CONTENT -->
     <div class="main">
         <div class="card">
-            <h2><i class="fas fa-cog"></i> Scraper Settings</h2>
+            <h2><i class="fas fa-cog"></i> Scraper & Notification Settings</h2>
             <!-- Flash messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -273,6 +273,20 @@
                 
                 Check Interval (minutes):<br>
                 <input type="number" name="interval" value="{{ settings.get('interval',60) }}" min="10" max="1440"><br>
+
+                <!-- Notification Preferences -->
+                <div style="margin-top: 12px; margin-bottom: 8px; font-weight: 700; color: #00bfff;">Notifications</div>
+                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <input type="checkbox" name="notify_email" value="1" {% if settings.get('notify_email') in ['1', 1, true, 'true'] %}checked{% endif %}>
+                    Email me when new listings match
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <input type="checkbox" name="notify_sms" value="1" {% if settings.get('notify_sms') in ['1', 1, true, 'true'] %}checked{% endif %}>
+                    Text me when new listings match
+                </label>
+                Phone Number (for SMS):<br>
+                <input type="text" name="phone_number" placeholder="+15551234567" value="{{ settings.get('phone_number','') }}"><br>
+                <button type="button" onclick="fetch('/api/notifications/test',{method:'POST'}).then(r=>r.json()).then(d=>alert(d.ok?'Test sent':'Failed to send test')).catch(()=>alert('Failed to send test'))" style="margin-top: 8px;">Send Test Notification</button>
                 
                 <input type="submit" value="Save Settings">
             </form>

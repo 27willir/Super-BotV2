@@ -88,6 +88,45 @@ python app.py
 
 The application will be available at `http://localhost:5000`
 
+## Notifications (Email & SMS)
+
+This app can send notifications via email and SMS when new listings are found.
+
+### Configure Providers
+
+1. Copy `.env.example` to `.env` and fill in your provider credentials:
+
+```bash
+cp .env.example .env
+```
+
+Email (SMTP): set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and either `SMTP_USE_TLS=true` or `SMTP_USE_SSL=true`.
+
+SMS (Twilio): set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER`.
+
+2. Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Enable per-user notifications
+
+1. Log in to the app and navigate to Settings (or the main Dashboard settings card).
+2. Toggle "Email me" and/or "Text me".
+3. Enter your phone number in E.164 format (e.g., `+15551234567`) for SMS.
+4. Click "Send Test Notification" to validate configuration.
+
+When scrapers discover a new matching listing, users with notifications enabled will receive an email and/or SMS with the listing details.
+
+### CLI test (optional)
+
+You can also test providers directly via the helper script:
+
+```bash
+TEST_TO_EMAIL=you@example.com TEST_TO_PHONE=+15551234567 python scripts/test_notifications.py
+```
+
 ## Running Tests
 
 ```bash

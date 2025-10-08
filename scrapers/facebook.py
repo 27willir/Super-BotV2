@@ -7,6 +7,7 @@ from selenium.webdriver.common.by import By
 from utils import debug_scraper_output, logger
 from db import get_settings, save_listing
 from error_handling import ErrorHandler, log_errors, ScraperError, NetworkError
+from notifications import notify_new_listing
 
 # ======================
 # CONFIGURATION
@@ -93,6 +94,10 @@ def send_discord_message(title, link, price=None, image_url=None):
         # Save to database
         ErrorHandler.handle_database_error(save_listing, title, price, link, image_url, "facebook")
         logger.info(f"📢 New Facebook Listing: {title} | ${price} | {link}")
+        try:
+            notify_new_listing(title=title, link=link, price=price, image_url=image_url, source="facebook")
+        except Exception as notify_err:
+            logger.error(f"Failed to dispatch notifications for Facebook listing {link}: {notify_err}")
     except Exception as e:
         logger.error(f"Failed to save Facebook listing for {link}: {e}")
         raise
