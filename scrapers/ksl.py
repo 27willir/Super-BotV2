@@ -9,6 +9,7 @@ from lxml import html
 from utils import debug_scraper_output, logger
 from db import get_settings, save_listing
 from error_handling import ErrorHandler, log_errors, ScraperError, NetworkError
+from notifications import notify_new_listing
 
 # ======================
 # CONFIGURATION
@@ -86,6 +87,10 @@ def send_discord_message(title, link, price=None, image_url=None):
         # Save to database
         save_listing(title, price, link, image_url, "ksl")
         print(f"📢 New KSL: {title} | ${price} | {link}")
+        try:
+            notify_new_listing(title=title, link=link, price=price, image_url=image_url, source="ksl")
+        except Exception as notify_err:
+            logger.error(f"Failed to dispatch notifications for KSL listing {link}: {notify_err}")
     except Exception as e:
         print(f"⚠️ Failed to save listing for {link}: {e}")
 

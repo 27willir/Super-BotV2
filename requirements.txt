@@ -9,3 +9,4 @@ lxml==6.0.2
 selenium==4.35.0
 webdriver-manager==4.0.2
 loguru==0.7.3
+twilio==9.2.4

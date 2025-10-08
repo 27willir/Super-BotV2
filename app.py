@@ -19,6 +19,7 @@ from security import SecurityConfig
 from error_handling import ErrorHandler, log_errors, safe_execute, DatabaseError
 from error_recovery import start_error_recovery, stop_error_recovery, handle_error, get_system_status
 from utils import logger
+from notifications import send_test_notification
 import json
 import os
 from dotenv import load_dotenv
@@ -145,7 +146,10 @@ def get_default_settings():
         "max_price": "30000",
         "interval": "60",
         "location": "boise",
-        "radius": "50"
+        "radius": "50",
+        "notify_email": "0",
+        "notify_sms": "0",
+        "phone_number": ""
     }
 
 @log_errors()
@@ -270,6 +274,9 @@ def settings():
     min_price = request.form.get("min_price")
     max_price = request.form.get("max_price")
     interval = request.form.get("interval")
+    notify_email = request.form.get("notify_email")
+    notify_sms = request.form.get("notify_sms")
+    phone_number = request.form.get("phone_number", "").strip()
 
     # Validate numeric inputs with proper error handling
     try:
@@ -320,6 +327,10 @@ def settings():
                 logger.warning(f"Invalid interval format: {interval} - {e}")
                 flash("Invalid interval value", "error")
                 return redirect(url_for("settings"))
+        # Basic phone validation (very light)
+        if phone_number and not any(ch.isdigit() for ch in phone_number):
+            flash("Invalid phone number", "error")
+            return redirect(url_for("settings"))
     except Exception as e:
         logger.error(f"Unexpected error during settings validation: {e}")
         flash("An error occurred while validating settings", "error")
@@ -336,6 +347,10 @@ def settings():
         update_user_setting("max_price", str(int(max_price)))
     if interval:
         update_user_setting("interval", str(int(interval)))
+    # Notification prefs
+    update_user_setting("notify_email", "1" if notify_email else "0")
+    update_user_setting("notify_sms", "1" if notify_sms else "0")
+    update_user_setting("phone_number", phone_number)
     
     flash("Settings updated successfully!", "success")
 
@@ -352,6 +367,9 @@ def update_settings():
         min_price = request.form.get("min_price")
         max_price = request.form.get("max_price")
         interval = request.form.get("interval")
+        notify_email = request.form.get("notify_email")
+        notify_sms = request.form.get("notify_sms")
+        phone_number = request.form.get("phone_number", "").strip()
 
         # Validate numeric inputs with proper error handling
         try:
@@ -394,6 +412,10 @@ def update_settings():
                 except ValueError:
                     flash("Invalid interval value", "error")
                     return redirect(url_for("index"))
+            # Basic phone validation (very light)
+            if phone_number and not any(ch.isdigit() for ch in phone_number):
+                flash("Invalid phone number", "error")
+                return redirect(url_for("index"))
 
         except Exception as e:
             logger.error(f"Unexpected error during settings validation: {e}")
@@ -411,6 +433,10 @@ def update_settings():
             update_user_setting("max_price", str(int(max_price)))
         if interval:
             update_user_setting("interval", str(int(interval)))
+        # Notification prefs
+        update_user_setting("notify_email", "1" if notify_email else "0")
+        update_user_setting("notify_sms", "1" if notify_sms else "0")
+        update_user_setting("phone_number", phone_number)
         
         flash("Settings updated successfully!", "success")
         return redirect(url_for("index"))
@@ -462,6 +488,21 @@ def api_status():
 @csrf.exempt
 def api_listings():
     return jsonify({"listings": get_listings_from_db(50)})
+
+@app.route("/api/notifications/test", methods=["POST"])
+@login_required
+@csrf.exempt
+def api_notifications_test():
+    try:
+        user_data = ErrorHandler.handle_database_error(get_user_by_username, current_user.id)
+        if not user_data:
+            return jsonify({"error": "User not found"}), 404
+        username, email, *_ = user_data
+        results = send_test_notification(username=username, email=email)
+        return jsonify({"ok": True, "results": results})
+    except Exception as e:
+        logger.error(f"Error sending test notification: {e}")
+        return jsonify({"ok": False, "error": "Failed to send test notification"}), 500
 
 @app.route("/api/system-status")
 @login_required
