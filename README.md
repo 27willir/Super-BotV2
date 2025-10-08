@@ -80,6 +80,21 @@ super-bot/
    python scripts/create_user.py <username> <password> <email>
    ```
 
+6. **Configure SMTP (for email verification):**
+
+   Set the following environment variables (e.g., in `.env`):
+
+   ```bash
+   SMTP_HOST=smtp.example.com
+   SMTP_PORT=587
+   SMTP_USER=your_smtp_username
+   SMTP_PASSWORD=your_smtp_password
+   SMTP_FROM=no-reply@example.com
+   SMTP_USE_TLS=True
+   ```
+
+   If SMTP is not configured, registration still works but verification emails will not be sent. Users can request resending after SMTP is configured.
+
 ## Running the Application
 
 ```bash

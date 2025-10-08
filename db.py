@@ -43,10 +43,22 @@ def init_db():
                 username TEXT UNIQUE,
                 email TEXT,
                 password TEXT,
-                verified BOOLEAN DEFAULT 1,
+                verified BOOLEAN DEFAULT 0,
+                verification_token TEXT,
+                verification_sent_at DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Ensure new columns exist for legacy databases
+        c.execute("PRAGMA table_info(users)")
+        existing_cols = {row[1] for row in c.fetchall()}
+        if 'verified' not in existing_cols:
+            c.execute("ALTER TABLE users ADD COLUMN verified BOOLEAN DEFAULT 0")
+        if 'verification_token' not in existing_cols:
+            c.execute("ALTER TABLE users ADD COLUMN verification_token TEXT")
+        if 'verification_sent_at' not in existing_cols:
+            c.execute("ALTER TABLE users ADD COLUMN verification_sent_at DATETIME")
         
         # Analytics tables for market insights
         c.execute("""
@@ -140,7 +152,7 @@ def get_user_by_username(username):
     """Get user by username"""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("SELECT username, email, password, verified FROM users WHERE username = ?", (username,))
+    c.execute("SELECT username, email, password, verified, verification_token FROM users WHERE username = ?", (username,))
     user = c.fetchone()
     conn.close()
     return user
@@ -150,7 +162,7 @@ def create_user_db(username, email, password_hash):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)", 
+        c.execute("INSERT INTO users (username, email, password, verified) VALUES (?, ?, ?, 0)", 
                  (username, email, password_hash))
         conn.commit()
         return True
@@ -163,10 +175,47 @@ def get_all_users():
     """Get all users from database"""
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("SELECT username, email, password, verified FROM users")
+    c.execute("SELECT username, email, password, verified, verification_token FROM users")
     users = c.fetchall()
     conn.close()
     return users
+
+def get_user_by_email(email):
+    """Get user by email"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT username, email, password, verified, verification_token FROM users WHERE email = ?", (email,))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+def set_verification_token(username, token):
+    """Set verification token and timestamp for a user"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute(
+        "UPDATE users SET verification_token = ?, verification_sent_at = datetime('now') WHERE username = ?",
+        (token, username)
+    )
+    conn.commit()
+    conn.close()
+
+def get_user_by_token(token):
+    """Get user record by verification token"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT username, email, password, verified, verification_token FROM users WHERE verification_token = ?", (token,))
+    user = c.fetchone()
+    conn.close()
+    return user
+
+def mark_user_verified(username):
+    """Mark the user as verified and clear token"""
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE users SET verified = 1, verification_token = NULL, verification_sent_at = NULL WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
 
 def save_listing(title, price, link, image_url=None, source=None):
     conn = sqlite3.connect(DB_FILE)

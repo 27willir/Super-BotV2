@@ -13,12 +13,15 @@ from db import (
     get_user_by_username, create_user_db, init_db, get_all_users,
     get_keyword_trends, get_price_analytics, get_source_comparison,
     get_keyword_analysis, get_hourly_activity, get_price_distribution,
-    get_market_insights, update_keyword_trends
+    get_market_insights, update_keyword_trends,
+    get_user_by_email, set_verification_token, get_user_by_token, mark_user_verified
 )
 from security import SecurityConfig
 from error_handling import ErrorHandler, log_errors, safe_execute, DatabaseError
 from error_recovery import start_error_recovery, stop_error_recovery, handle_error, get_system_status
 from utils import logger
+from email_utils import send_email, build_verification_email
+import secrets
 import json
 import os
 from dotenv import load_dotenv
@@ -193,6 +196,12 @@ def login():
             user_data = ErrorHandler.handle_database_error(get_user_by_username, username)
             if user_data:
                 if SecurityConfig.verify_password(user_data[2], password):  # password is at index 2
+                    # Check email verification status (index 3)
+                    if not user_data[3]:
+                        logger.warning(f"Unverified email login attempt: {username}")
+                        flash("Please verify your email before logging in.", "error")
+                        flash("You can resend the verification email below.", "info")
+                        return render_template("login.html")
                     user = User(username, user_data[2])
                     login_user(user, remember=True)
                     session.permanent = True
@@ -429,12 +438,78 @@ def register():
         
         success, msg = create_user(username, password, email)
         if success:
-            flash("Registration successful! Please log in.", "success")
+            # Generate verification token and send email
+            try:
+                token = secrets.token_urlsafe(32)
+                ErrorHandler.handle_database_error(set_verification_token, username, token)
+                verify_url = url_for("verify_email", token=token, _external=True)
+                subject, html = build_verification_email("Super Bot", email, verify_url)
+                sent = send_email(subject, email, html, text_body=None)
+                if sent:
+                    flash("Registration successful! Check your email to verify your account.", "success")
+                else:
+                    flash("Registration successful! We could not send the verification email. Use 'Resend verification' on the login page.", "error")
+            except Exception as e:
+                logger.error(f"Failed to send verification email: {e}")
+                flash("Registration successful! But sending the verification email failed. Please try resending.", "error")
             return redirect(url_for("login"))
         else:
             flash(msg, "error")
     
     return render_template("register.html")
+
+@app.route("/verify", methods=["GET"])
+@log_errors()
+def verify_email():
+    token = request.args.get("token", "")
+    if not token:
+        flash("Invalid verification link.", "error")
+        return redirect(url_for("login"))
+    try:
+        user_data = ErrorHandler.handle_database_error(get_user_by_token, token)
+        if not user_data:
+            flash("Invalid or expired verification link.", "error")
+            return redirect(url_for("login"))
+        username = user_data[0]
+        ErrorHandler.handle_database_error(mark_user_verified, username)
+        flash("Email verified! You can now log in.", "success")
+        return redirect(url_for("login"))
+    except Exception as e:
+        logger.error(f"Error verifying email: {e}")
+        flash("An error occurred during verification.", "error")
+        return redirect(url_for("login"))
+
+@app.route("/resend-verification", methods=["GET", "POST"])
+@log_errors()
+def resend_verification():
+    if request.method == "GET":
+        return render_template("resend_verification.html")
+    # POST
+    email_or_username = SecurityConfig.sanitize_input(request.form.get("email", "").strip())
+    try:
+        user_data = None
+        if "@" in email_or_username:
+            user_data = ErrorHandler.handle_database_error(get_user_by_email, email_or_username)
+        else:
+            user_data = ErrorHandler.handle_database_error(get_user_by_username, email_or_username)
+
+        # Always respond the same to avoid user enumeration
+        if user_data and not user_data[3]:
+            # Not verified yet
+            username = user_data[0]
+            email = user_data[1]
+            token = secrets.token_urlsafe(32)
+            ErrorHandler.handle_database_error(set_verification_token, username, token)
+            verify_url = url_for("verify_email", token=token, _external=True)
+            subject, html = build_verification_email("Super Bot", email, verify_url)
+            send_email(subject, email, html, text_body=None)
+
+        flash("If the account exists and isn't verified, a new verification email has been sent.", "success")
+        return redirect(url_for("login"))
+    except Exception as e:
+        logger.error(f"Error resending verification: {e}")
+        flash("Failed to resend verification email.", "error")
+        return redirect(url_for("login"))
 
 @app.route("/analytics")
 @login_required
